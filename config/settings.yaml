@@ -1,0 +1,69 @@
+# ============================================================
+# RiskGuard Configuration
+# ============================================================
+
+data:
+  n_merchants: 50
+  n_transactions: 100000
+  fraud_ratio: 0.03            # 3% fraud injection rate
+  time_span_days: 90
+  seed: 42
+  output_dir: "data/"
+
+features:
+  time_windows: [5, 15, 60, 1440]   # minutes: 5min, 15min, 1hr, 1day
+  velocity_features:
+    - txn_count_per_window
+    - txn_amount_sum_per_window
+    - unique_cards_per_window
+    - avg_amount_per_window
+    - amount_stddev_per_window
+  merchant_features:
+    - chargeback_rate_30d
+    - refund_rate_30d
+    - avg_ticket_size
+    - txn_volume_trend
+
+models:
+  baseline:
+    z_threshold: 3.0             # Flag if Z-score > 3
+    rolling_window: 100          # Transactions for rolling stats
+
+  isolation_forest:
+    n_estimators: 200
+    contamination: 0.03
+    max_samples: "auto"
+    random_state: 42
+
+  autoencoder:
+    encoding_dim: 8
+    hidden_dims: [32, 16]
+    epochs: 50
+    batch_size: 64
+    learning_rate: 0.001
+    reconstruction_threshold_percentile: 97
+
+  ensemble:
+    weights:
+      baseline: 0.2
+      isolation_forest: 0.4
+      autoencoder: 0.4
+    final_threshold: 0.5
+
+evaluation:
+  test_size: 0.2
+  cost_matrix:
+    true_positive_value: 5000    # ₹ saved by catching fraud
+    false_positive_cost: 800     # ₹ lost by blocking legit txn
+    false_negative_cost: 5000    # ₹ lost by missing fraud
+    true_negative_value: 0       # No cost — correct pass
+  report_output: "docs/evaluation_report.md"
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  rate_limit: 1000               # Max requests/minute
+
+dashboard:
+  refresh_interval: 5            # Seconds
+  max_display_transactions: 500
